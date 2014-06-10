@@ -42,13 +42,31 @@ Connect to the virtual machine via ssh:
 
     host $ vagrant ssh
 
-Start the datasource:
+Bundle the Ruby gems:
 
     vagrant $ cd xtuple-dashboard
-    vagrant $ bundle
+    vagrant $ bundle install
+
+Setup environment variables:
+
+* Make a copy of the `.env.sample` file named `.env` in the project root
+* Edit the `.env` file and enter the required tokens [HOW?](#generating-required-access-tokens)
+
+Start the xTuple Dashboard server
+
     vagrant $ dashing start
 
 ### xTuple Dashboard
 
 Launch your local browser and navigate to application using localhost `http://localhost:3030`
 or the static IP Address of the virtual machine `http://192.168.33.12:3030`
+
+### Generating Required Access Tokens
+
+Github:
+
+  [Generating a Github Access token](https://help.github.com/articles/creating-an-access-token-for-command-line-use)
+
+Travis-CI:
+
+    vagrant $ travis login --pro && travis token --pro
