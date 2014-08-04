@@ -9,10 +9,10 @@ OpenSSL::SSL::VERIFY_PEER = OpenSSL::SSL::VERIFY_NONE
 Dotenv.load
 
 database = ENV['DATABASE']
-host = "https://" + ENV['HOST']
+host = "https://" + ENV['APPLICATION_HOST']
 
-if ENV['PORT']
-  host = host + ":" + ENV['PORT']
+if ENV['APPLICATION_PORT']
+  host = host + ":" + ENV['APPLICATION_PORT']
 end
 baseUrl = host + "/" + database
 
@@ -20,12 +20,17 @@ baseUrl = host + "/" + database
 client = Google::APIClient.new(
   :application_name => ENV['APPLICATION_NAME'],
   :application_version => ENV['APPLICATION_VERSION'],
-  :port => 8443,
-  :host => ENV['HOST']
+  :port => ENV['APPLICATION_PORT'],
+  :host => ENV['APPLICATION_HOST']
 )
 
 # Load your credentials for the service account
-key = Google::APIClient::KeyUtils.load_from_pkcs12(ENV['PRIVATE_KEY_PATH'], ENV['PRIVATE_KEY_SECRET'])
+if ENV['PRIVATE_KEY_PATH']
+  key = Google::APIClient::KeyUtils.load_from_pkcs12(ENV['PRIVATE_KEY_PATH'], ENV['PRIVATE_KEY_SECRET'])
+else
+  key = OpenSSL::PKey::RSA.new(ENV['PRIVATE_KEY'], ENV['PRIVATE_KEY_SECRET'])
+end
+
 client.authorization = Signet::OAuth2::Client.new(
   :authorization_uri => baseUrl + '/oauth/auth',
   :token_credential_uri => baseUrl + '/oauth/token',
@@ -35,16 +40,16 @@ client.authorization = Signet::OAuth2::Client.new(
   :signing_key => key,
   :person => ENV['USERNAME'])
 
+# create discovery_uri with application version
+discovery_uri = baseUrl + '/discovery/' + ENV['APPLICATION_VERSION'] + '/apis/' + ENV['APPLICATION_VERSION'] + '/rest';
+# Register the discovery URL for xTuple REST
+client.register_discovery_uri(ENV['APPLICATION_NAME'], ENV['APPLICATION_VERSION'], discovery_uri)
+
 # Start the scheduler
-SCHEDULER.every '1m', :first_in => 0 do
+SCHEDULER.every '2m', :first_in => 0 do
 
   # Request a token for our service account
   client.authorization.fetch_access_token!
-
-  # create discovery_uri with application version
-  discovery_uri = baseUrl + '/discovery/' + ENV['APPLICATION_VERSION'] + '/apis/' + ENV['APPLICATION_VERSION'] + '/rest';
-  # Register the discovery URL for xTuple REST
-  client.register_discovery_uri(ENV['APPLICATION_NAME'], ENV['APPLICATION_VERSION'], discovery_uri)
 
   # Initialize xTuple REST API. Note this will make a request to the
   # discovery service every time.
@@ -56,14 +61,26 @@ SCHEDULER.every '1m', :first_in => 0 do
   # Ensure that the api_method is using snake versus camel-case: sales_history vs SalesHistory
   #
   result = client.execute(
-    :api_method => service.contact.list,
+    :api_method => service.incident.get,
     :parameters => {}
   )
 
-  contacts = result.data.data
+  # TODO: check for empty dataset
+  incidents = result.data.data
+  unclosed = [], unconfirmed = []
+
+  # filter for incidents that are resolved fixed
+  incidents.each do |incident|
+    if incident['status'] == 'R' && incident['resolution'] == 'Fixed'
+      unclosed.push(incident)
+    elsif incident['status'] == 'N'
+      unconfirmed.push(incident)
+    end
+  end
 
   # Update the dashboard
-  # Note the trailing to_i - See: https://github.com/Shopify/dashing/issues/33
   # Send the data for the Contacts count
-  send_event('contacts_count', contacts[0].to_i)
+  send_event('resolved_fixed_incidents', { current: unclosed.size() })
+  send_event('new_incidents', { current: unconfirmed.size() })
+
 end
