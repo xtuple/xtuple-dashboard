@@ -244,7 +244,7 @@ h3 {
 }
 
 #container {
-  padding-top: 5px;
+  padding-top: 0;
 }
 
 
@@ -254,4 +254,3 @@ h3 {
 .clearfix:before, .clearfix:after { content: "\0020"; display: block; height: 0; overflow: hidden; }
 .clearfix:after { clear: both; }
 .clearfix { zoom: 1; }
-
