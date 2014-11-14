@@ -1,5 +1,5 @@
 
-## Creating a Vagrant Virtual Development Environment for xTuple Dashboards ##
+## Creating a Development Environment for Dashboards ##
 
 [Vagrant](http://docs.vagrantup.com/v2/why-vagrant/index.html) is open-source software used to create lightweight
 and portable virtual development environments. Vagrant works like a "wrapper" for VirtualBox that can create,
